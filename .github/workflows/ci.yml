@@ -18,8 +18,11 @@ jobs:
 
       - name: Install Chrome
         uses: browser-actions/setup-chrome@v1
+        id: setup-chrome
 
       - name: Run tests
+        env:
+          CHROMEDRIVER_PATH: ${{ steps.setup-chrome.outputs.chromedriver-path }}
         run: pytest tests/ --html=report.html --self-contained-html -v
         continue-on-error: true
 
