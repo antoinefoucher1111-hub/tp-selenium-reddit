@@ -1,0 +1,5 @@
+selenium==4.18.1
+pytest==7.4.0
+pytest-html==3.2.0
+matplotlib==3.7.2
+webdriver-manager==4.0.1
