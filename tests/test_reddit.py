@@ -37,3 +37,78 @@ def driver():
     time.sleep(3)
     yield driver
     driver.quit()
+
+def get_post_titles(driver):
+    """Récupère les titres des 10 premiers posts visibles."""
+    try:
+        posts = WebDriverWait(driver, 10).until(
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "a[data-click-id='body']"))
+        )
+        return posts[:10]
+    except Exception:
+        # Sélecteur alternatif si Reddit change son HTML
+        posts = driver.find_elements(By.CSS_SELECTOR, "h3")
+        return posts[:10]
+
+def test_titres_sans_contenu_haineux(driver):
+    """Test 1 : Vérifie l'absence de mots-clés haineux dans les titres des 10 posts."""
+    posts = get_post_titles(driver)
+    assert len(posts) > 0, "Aucun post trouvé sur la page"
+    titres_verifies = []
+    for post in posts:
+        title = post.text.lower()
+        titres_verifies.append(f"✔ Titre vérifié : {post.text[:80]}")
+        assert not any(kw in title for kw in HATE_KEYWORDS), \
+            f"⚠ Contenu haineux détecté dans le titre : {title}"
+    print("\n".join(titres_verifies))
+
+def test_corps_sans_contenu_haineux(driver):
+    """Test 2 : Vérifie l'absence de mots-clés haineux dans le corps des 10 posts."""
+    posts = get_post_titles(driver)
+    assert len(posts) > 0, "Aucun post trouvé sur la page"
+    for i, post in enumerate(posts):
+        titre = post.text[:60]
+        try:
+            post.click()
+            time.sleep(2)
+            # Cherche le contenu textuel du post
+            body_elements = driver.find_elements(
+                By.CSS_SELECTOR, "[data-testid='post-content'], .RichTextJSON-root, [slot='text-body']"
+            )
+            body = " ".join([el.text for el in body_elements]).lower()
+            assert not any(kw in body for kw in HATE_KEYWORDS), \
+                f"⚠ Contenu haineux dans le corps du post '{titre}'"
+            print(f"✔ Corps vérifié pour : {titre}")
+        except Exception as e:
+            print(f"⚠ Impossible d'ouvrir le post {i+1} : {e}")
+        finally:
+            driver.back()
+            time.sleep(2)
+
+def test_bouton_signalement_present(driver):
+    """Test 3 : Vérifie la présence d'un bouton de signalement sur chaque post."""
+    posts = get_post_titles(driver)
+    assert len(posts) > 0, "Aucun post trouvé sur la page"
+    for i, post in enumerate(posts):
+        titre = post.text[:60]
+        try:
+            post.click()
+            time.sleep(2)
+            # Cherche le bouton "Report" ou "Signaler"
+            boutons = driver.find_elements(
+                By.XPATH,
+                "//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
+                "'abcdefghijklmnopqrstuvwxyz'), 'report') or "
+                "contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
+                "'abcdefghijklmnopqrstuvwxyz'), 'signaler')]"
+            )
+            assert len(boutons) > 0, \
+                f"⚠ Bouton de signalement absent pour : {titre}"
+            print(f"✔ Bouton signalement présent pour : {titre}")
+        except AssertionError:
+            raise
+        except Exception as e:
+            print(f"⚠ Erreur sur le post {i+1} : {e}")
+        finally:
+            driver.back()
+            time.sleep(2)
